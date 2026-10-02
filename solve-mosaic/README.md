@@ -100,10 +100,16 @@ the bed.
   out so the wordmark is not given away early. It is held as a
   small texture recording both the ink and the order in which each stroke is
   drawn, so it can be revealed stroke by stroke.
-- **Staging and light**: a mitred walnut frame on a plank table, both with
-  procedural wood grain, under a low warm key light that rakes across the
-  stones, a cool sky fill and a faint back light. The table falls away into
-  shadow beyond the panel, and distance fog fades its far edge.
+- **Staging and light** (`src/sky.js`): golden-hour daylight. A low amber sun
+  (about 17° up, from behind and to the left) rakes across the stones, so each
+  one throws a long shadow over the joint beside it and the frame throws a long
+  shadow across the plank table. Cool blue skylight fills the shadows, the table
+  bounces warm light back up, and a procedural sky (amber at the horizon, soft
+  blue overhead) serves both as the backdrop and as the environment lighting, so
+  reflections agree with the sun. The sun's shadow camera is fitted tightly to
+  the panel and its shadows to keep them sharp at that low angle. Neutral tone
+  mapping keeps the gold in the highlights instead of bleaching them to white,
+  and warm haze fades the far table into the horizon.
 - **Mortar** (`src/joints.js`): stones stand a little proud of a gritty lime
   mortar with visible joints. A shading map built from the laid stones darkens
   joints where stones crowd round them, appearing only as those stones land.
@@ -123,4 +129,4 @@ the bed.
   (`src/rng.js`, seed 7878), so each load lays the same mosaic.
 
 Three.js r186 is vendored in `vendor/` (MIT licence, `vendor/LICENSE-three.txt`).
-The only add-ons used are `OrbitControls` and `RoomEnvironment`.
+The only add-on used is `OrbitControls`.

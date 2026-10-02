@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildMosaic } from './layout.js';
 import { buildMosaicMesh, buildBed, buildStage } from './mosaic.js';
 import { buildSinopia } from './sinopia.js';
 import { buildJointShade } from './joints.js';
+import { SUN_DIR, SUN_COLOUR, HAZE, buildSkyDome, buildSkyEnvironment, fitSunShadow } from './sky.js';
 import { createDirector } from './director.js';
 import { assignTimeline, phaseAt, PHASES, FLIGHT, FLIGHT_ORDER, SINOPIA_FADE } from './timeline.js';
 import { PANEL, MORTAR, toWorld } from './compose.js';
@@ -41,42 +41,37 @@ try {
 }
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.94;
+// Neutral tone mapping keeps the sun's gold in the highlights instead of
+// bleaching them to white.
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 0.95;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 stage.appendChild(renderer.domElement);
 
-const SCENE_BG = new THREE.Color('#14110e');
+// Golden-hour daylight: a low amber sun raking in from the back left, blue
+// skylight in the shadows, warm bounce off the table, and a sky to match.
 const scene = new THREE.Scene();
-scene.background = SCENE_BG;
-scene.fog = new THREE.Fog(SCENE_BG, 200, 600); // distances follow the camera, see frame()
-const pmrem = new THREE.PMREMGenerator(renderer);
-scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-scene.environmentIntensity = 0.45;
+scene.fog = new THREE.Fog(HAZE, 200, 600); // distances follow the camera, see frame()
+scene.environment = buildSkyEnvironment(renderer);
+scene.environmentIntensity = 0.55;
+const sky = buildSkyDome();
+scene.add(sky);
 
 const camera = new THREE.PerspectiveCamera(30, 1, 0.3, 2000);
 
-// A low, warm key raking across the stones, a cool sky fill and a faint back
-// light: long soft shadows in the joints and a glint on every bevel.
-const hemi = new THREE.HemisphereLight(0xdfe7f0, 0x2b251f, 0.42);
+const hemi = new THREE.HemisphereLight(0x97afd4, 0x8a5a32, 0.74);
 scene.add(hemi);
-const key = new THREE.DirectionalLight(0xffeedb, 2.7);
-key.position.set(-48, 36, 30);
+const key = new THREE.DirectionalLight(SUN_COLOUR, 5.0);
+key.position.copy(SUN_DIR).multiplyScalar(90);
 key.castShadow = true;
 const mobile = Math.min(window.innerWidth, window.innerHeight) < 700;
 key.shadow.mapSize.set(mobile ? 2048 : 4096, mobile ? 2048 : 4096);
-Object.assign(key.shadow.camera, { left: -62, right: 62, top: 50, bottom: -50, near: 10, far: 170 });
-key.shadow.bias = -0.0003;
-key.shadow.normalBias = 0.012;
-key.shadow.radius = 1.6;
+key.shadow.bias = -0.0004;
+key.shadow.normalBias = 0.03;
+key.shadow.radius = 2.4;
 scene.add(key, key.target);
-const fill = new THREE.DirectionalLight(0xdfe8f2, 0.3);
-fill.position.set(40, 30, -30);
-scene.add(fill);
-const back = new THREE.DirectionalLight(0xfff4e8, 0.45);
-back.position.set(20, 14, -60);
-scene.add(back);
+fitSunShadow(key, new THREE.Box3(new THREE.Vector3(-57, -3, -37), new THREE.Vector3(57, 0.6, 37)));
 
 scene.add(buildStage(PANEL)); // walnut frame and plank table
 
@@ -368,8 +363,9 @@ function frame(now) {
   if (!driven) controls.update();
   // fog only ever reaches the far table, whatever the camera distance
   const dist = camera.position.distanceTo(controls.target);
-  scene.fog.near = dist * 1.25 + 10;
-  scene.fog.far = dist * 5 + 90;
+  scene.fog.near = dist * 1.4 + 30;
+  scene.fog.far = dist * 6 + 260;
+  sky.position.copy(camera.position);
   renderer.render(scene, camera);
   ui.phase.textContent = paused ? 'Paused' : phaseAt(buildTime, buildEnd);
   ui.progress.style.transform = `scaleX(${Math.min(1, buildTime / buildEnd)})`;

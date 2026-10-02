@@ -225,7 +225,7 @@ function tileMaterial(uniforms) {
       .replace(
         '#include <normal_fragment_maps>',
         /* glsl */ `#include <normal_fragment_maps>
-        normal = bumpNormal(normal, -vViewPosition, hgt, 0.085);`
+        normal = bumpNormal(normal, -vViewPosition, hgt, 0.055);`
       );
   };
   mat.customProgramCacheKey = () => 'mosaic-tile-v4';
@@ -495,10 +495,8 @@ export function buildStage(panel) {
     wood *= 0.9 + 0.2 * seed;
     float seam = min(zl, plankW - zl);
     wood *= mix(0.35, 1.0, smoothstep(0.03, 0.12, seam));
-    // the lamp's pool of light falls away across the table
-    wood *= mix(0.28, 1.0, 1.0 - smoothstep(55.0, 175.0, length(p.xz * vec2(0.85, 1.25))));
     diffuseColor.rgb = wood;`;
-  const table = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), woodMaterial('#3d2c21', '#22170f', 0.66, tableGrain, 'mosaic-table-v3'));
+  const table = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), woodMaterial('#3d2c21', '#22170f', 0.66, tableGrain, 'mosaic-table-v4'));
   table.rotation.x = -Math.PI / 2;
   table.position.y = floor;
   table.receiveShadow = true;
