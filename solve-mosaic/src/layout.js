@@ -568,8 +568,9 @@ export function buildMosaic({ seed = 7878, targetCount = 7878 } = {}) {
       const hull = convexHull(pts);
       const single = area < 1.5 * target && signedArea(hull) < area * 1.25;
       const groups = single ? [pts] : kmeans(pts, Math.max(2, Math.round(area / target)), rFill);
+      const group = kind === 'background' ? 'background' : kind;
       const metaFor = (poly) => {
-        const ref = tiles[nearestTile(centroid(poly))];
+        const ref = tiles[nearestTile(centroid(poly), group)];
         return {
           tone: regions[reg].tone, region: reg, group: kind === 'background' ? 'background' : kind,
           phase: ref ? ref.phase : kind === 'letter' ? 'fill' : kind === 'plane' ? 'planes' : 'background',
@@ -592,12 +593,14 @@ export function buildMosaic({ seed = 7878, targetCount = 7878 } = {}) {
     return { filled };
   }
 
-  function nearestTile(c) {
-    for (let r = 0; r < 40; r++) {
-      for (let a = 0; a < 8; a++) {
-        const ang = (a / 8) * TAU;
+  // Nearest laid stone of the same group, so a cut piece goes down with the
+  // stones around it rather than with a neighbouring subject.
+  function nearestTile(c, group) {
+    for (let r = 0; r < 60; r++) {
+      for (let a = 0; a < 12; a++) {
+        const ang = (a / 12) * TAU;
         const k = grid.idx(c[0] + Math.cos(ang) * r * RES, c[1] + Math.sin(ang) * r * RES);
-        if (k >= 0 && occ[k] >= 0) return occ[k];
+        if (k >= 0 && occ[k] >= 0 && tiles[occ[k]].group === group) return occ[k];
       }
     }
     return -1;

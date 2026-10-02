@@ -26,7 +26,13 @@ const ui = {
 
 // ------------------------------------------------------------------ renderer & scene
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+} catch (err) {
+  loading.textContent = 'This artwork needs WebGL, which is not available in this browser.';
+  throw err;
+}
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -146,11 +152,13 @@ function currentPose() {
 // Camera tour after construction: hold, glide to the "o" and dots, linger,
 // return to the full panel. Any manual input hands control to the viewer.
 const tour = { state: 'build', t: 0, from: null };
+// Viewers who ask for reduced motion keep the construction but skip the glide.
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const TOUR = { hold: 1.6, approach: 7.5, linger: 4.5, back: 7.5 };
 function tourTick(dt) {
   if (tour.state === 'user' || tour.state === 'done') return false;
   if (tour.state === 'build') {
-    if (buildTime >= buildEnd) { tour.state = 'hold'; tour.t = 0; }
+    if (buildTime >= buildEnd) { tour.state = reducedMotion ? 'done' : 'hold'; tour.t = 0; }
     return tour.state !== 'build' ? true : (tour.from ? glideHome(dt) : false);
   }
   tour.t += dt;
