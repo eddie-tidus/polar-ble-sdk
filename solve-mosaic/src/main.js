@@ -97,6 +97,8 @@ function poseToCamera(p, cam = camera) {
   );
   cam.lookAt(p.target);
   cam.updateMatrixWorld();
+  // keep the orbit pivot in step, so taking over mid-tour does not jump
+  if (cam === camera) controls.target.copy(p.target);
 }
 
 // Radius at which the whole panel sits comfortably inside the viewport.
