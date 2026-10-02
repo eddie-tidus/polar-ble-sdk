@@ -4,14 +4,17 @@
 import { Rng } from './rng.js';
 
 export const PHASES = [
-  { id: 'bed', label: 'Spreading the mortar bed', from: 0.0, to: 2.4 },
-  { id: 'outline', label: 'Setting the wordmark contours', from: 2.6, to: 7.6 },
-  { id: 'fill', label: 'Filling the letters', from: 7.4, to: 11.8 },
-  { id: 'dots', label: 'Setting the turquoise dots', from: 11.6, to: 12.9 },
-  { id: 'planes', label: 'Laying the paper planes', from: 12.9, to: 19.0 },
-  { id: 'background', label: 'Flowing the background', from: 19.0, to: 28.6 },
-  { id: 'border', label: 'Laying the border', from: 28.2, to: 33.2 },
+  { id: 'bed', label: 'Spreading the mortar bed', from: 0.0, to: 2.2 },
+  { id: 'sinopia', label: 'Drawing the red-ochre guidelines', from: 1.0, to: 3.4 },
+  { id: 'outline', label: 'Setting the wordmark contours', from: 3.0, to: 8.0 },
+  { id: 'fill', label: 'Filling the letters', from: 7.8, to: 11.6 },
+  { id: 'dots', label: 'Setting the turquoise dots', from: 11.6, to: 15.0 },
+  { id: 'planes', label: 'Laying the paper planes', from: 15.0, to: 20.5 },
+  { id: 'background', label: 'Flowing the background', from: 20.5, to: 29.5 },
+  { id: 'border', label: 'Laying the border', from: 29.0, to: 34.0 },
 ];
+// The red-ochre underdrawing fades as the final stones go down.
+export const SINOPIA_FADE = { from: 30.0, to: 34.5 };
 const BY_ID = Object.fromEntries(PHASES.map((p) => [p.id, p]));
 
 export function assignTimeline(tiles, seed) {

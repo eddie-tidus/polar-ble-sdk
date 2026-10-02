@@ -2,13 +2,18 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildMosaic } from './layout.js';
-import { buildMosaicMesh, buildBed } from './mosaic.js';
-import { assignTimeline, phaseAt, PHASES } from './timeline.js';
+import { buildMosaicMesh, buildBed, buildStage } from './mosaic.js';
+import { buildSinopia } from './sinopia.js';
+import { createDirector } from './director.js';
+import { assignTimeline, phaseAt, PHASES, SINOPIA_FADE } from './timeline.js';
 import { PANEL, MORTAR, toWorld } from './compose.js';
-import { O_GEOM } from './logo.js';
+import { O_GEOM, DOTS } from './logo.js';
+import { centroid } from './geom.js';
 
 const SEED = 7878;
-const BED_TIME = PHASES[0].to;
+const phase = (id) => PHASES.find((p) => p.id === id);
+const BED = phase('bed');
+const SINOPIA = phase('sinopia');
 
 const stage = document.getElementById('stage');
 const bar = document.getElementById('bar');
@@ -17,6 +22,7 @@ const ui = {
   replay: document.getElementById('replay'),
   pause: document.getElementById('pause'),
   speed: document.getElementById('speed'),
+  cam: document.getElementById('cam'),
   finish: document.getElementById('finish'),
   view: document.getElementById('view'),
   phase: document.getElementById('phase'),
@@ -28,7 +34,7 @@ const ui = {
 
 let renderer;
 try {
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 } catch (err) {
   loading.textContent = 'This artwork needs WebGL, which is not available in this browser.';
   throw err;
@@ -39,15 +45,17 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.94;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
-renderer.setClearColor(0x000000, 0);
 stage.appendChild(renderer.domElement);
 
+const SCENE_BG = new THREE.Color('#14110e');
 const scene = new THREE.Scene();
+scene.background = SCENE_BG;
+scene.fog = new THREE.Fog(SCENE_BG, 200, 600); // distances follow the camera, see frame()
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environmentIntensity = 0.45;
 
-const camera = new THREE.PerspectiveCamera(30, 1, 0.5, 2000);
+const camera = new THREE.PerspectiveCamera(30, 1, 0.3, 2000);
 
 const hemi = new THREE.HemisphereLight(0xe9eef2, 0x2b251f, 0.55);
 scene.add(hemi);
@@ -65,15 +73,7 @@ const fill = new THREE.DirectionalLight(0xdfe8f2, 0.35);
 fill.position.set(40, 30, -30);
 scene.add(fill);
 
-// soft contact shadow under the slab
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.ShadowMaterial({ opacity: 0.32 }));
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = -2.96;
-ground.receiveShadow = true;
-scene.add(ground);
-
-const bed = buildBed(PANEL, MORTAR);
-scene.add(bed.group);
+scene.add(buildStage(PANEL)); // walnut frame and plank table
 
 // ------------------------------------------------------------------ camera poses
 
@@ -85,8 +85,9 @@ controls.minDistance = 3;
 controls.maxDistance = 1000;
 controls.maxPolarAngle = THREE.MathUtils.degToRad(84);
 
+const FRAME_M = 2.75; // frame width beyond the panel edge
 const panelCorners = [];
-for (const x of [PANEL.x0 - 0.8, PANEL.x1 + 0.8]) for (const z of [-(PANEL.y0 - 0.8), -(PANEL.y1 + 0.8)]) for (const y of [0.3, -2.95]) panelCorners.push(new THREE.Vector3(x, y, z));
+for (const x of [PANEL.x0 - FRAME_M, PANEL.x1 + FRAME_M]) for (const z of [-(PANEL.y0 - FRAME_M), -(PANEL.y1 + FRAME_M)]) for (const y of [0.5, -2.95]) panelCorners.push(new THREE.Vector3(x, y, z));
 
 function poseToCamera(p, cam = camera) {
   const sp = Math.sin(p.polar);
@@ -97,13 +98,13 @@ function poseToCamera(p, cam = camera) {
   );
   cam.lookAt(p.target);
   cam.updateMatrixWorld();
-  // keep the orbit pivot in step, so taking over mid-tour does not jump
+  // keep the orbit pivot in step, so taking over mid-move does not jump
   if (cam === camera) controls.target.copy(p.target);
 }
 
-// Radius at which the whole panel sits comfortably inside the viewport.
+// Radius at which the whole framed panel sits comfortably inside the viewport.
 const probe = new THREE.PerspectiveCamera();
-function fitRadius(pose) {
+function fitRadius(pose, mx = 0.9, my = 0.86) {
   probe.copy(camera);
   let lo = 20, hi = 1200;
   const v = new THREE.Vector3();
@@ -114,7 +115,7 @@ function fitRadius(pose) {
     let ok = true;
     for (const c of panelCorners) {
       v.copy(c).project(probe);
-      if (Math.abs(v.x) > 0.9 || Math.abs(v.y) > 0.86) { ok = false; break; }
+      if (Math.abs(v.x) > mx || Math.abs(v.y) > my) { ok = false; break; }
     }
     if (ok) hi = mid; else lo = mid;
   }
@@ -122,6 +123,7 @@ function fitRadius(pose) {
 }
 
 const oCentre = toWorld([O_GEOM.cx, O_GEOM.cy]);
+const dotsCentre = toWorld([(DOTS[0].cx + DOTS[1].cx) / 2, DOTS[0].cy]);
 function openingPose() {
   const p = { target: new THREE.Vector3(0, 0, 0.6), polar: THREE.MathUtils.degToRad(25), azimuth: 0, radius: 100 };
   p.radius = fitRadius(p);
@@ -151,13 +153,17 @@ function currentPose() {
   return { target: controls.target.clone(), radius: r, polar: Math.acos(off.y / r), azimuth: Math.atan2(off.x, off.z) };
 }
 
-// Camera tour after construction: hold, glide to the "o" and dots, linger,
-// return to the full panel. Any manual input hands control to the viewer.
-const tour = { state: 'build', t: 0, from: null };
-// Viewers who ask for reduced motion keep the construction but skip the glide.
+// Two camera modes:
+//  cinematic – a choreographed move tied to the construction clock
+//  overview  – the full panel throughout, then a glide to the "o" and back
+// Any manual input hands the camera to the viewer until Replay.
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let camMode = reducedMotion ? 'overview' : 'cinematic';
+let director = null;
+const tour = { state: 'build', t: 0, from: null };
 const TOUR = { hold: 1.6, approach: 7.5, linger: 4.5, back: 7.5 };
-function tourTick(dt) {
+
+function overviewTick(dt) {
   if (tour.state === 'user' || tour.state === 'done') return false;
   if (tour.state === 'build') {
     if (buildTime >= buildEnd) { tour.state = reducedMotion ? 'done' : 'hold'; tour.t = 0; }
@@ -182,12 +188,20 @@ function tourTick(dt) {
   }
   return true;
 }
-// After a replay, ease back to the opening view.
 function glideHome(dt) {
   tour.t += dt;
   poseToCamera(lerpPose(tour.from, openingPose(), tour.t / 1.6));
   if (tour.t >= 1.6) tour.from = null;
   return true;
+}
+// Returns true when the script placed the camera this frame.
+function cameraTick(dt) {
+  if (tour.state === 'user') return false;
+  if (camMode === 'cinematic') {
+    poseToCamera(director.poseAt(buildTime));
+    return true;
+  }
+  return overviewTick(dt);
 }
 
 controls.addEventListener('start', () => { tour.state = 'user'; tour.from = null; });
@@ -195,7 +209,8 @@ controls.addEventListener('start', () => { tour.state = 'user'; tour.from = null
 // ------------------------------------------------------------------ build state
 
 let mosaic = null;
-let buildEnd = 34;
+let bed = null;
+let buildEnd = 35;
 let buildTime = 0;
 let speed = 1;
 let paused = false;
@@ -214,19 +229,39 @@ function replay() {
   setPaused(false);
   tour.state = 'build';
   tour.t = 0;
-  tour.from = currentPose();
+  tour.from = camMode === 'overview' ? currentPose() : null;
 }
 
 function finish() {
-  buildTime = buildEnd + 0.01;
   setPaused(false);
+  if (camMode === 'cinematic') {
+    // land on the closing shot as well as the finished panel
+    buildTime = Math.max(buildEnd, director.endTime) + 0.01;
+    if (tour.state === 'user') tour.state = 'build';
+  } else {
+    buildTime = buildEnd + 0.01;
+    tour.state = 'done';
+    poseToCamera(openingPose());
+  }
 }
 
 function resetView() {
-  tour.state = 'done';
+  tour.state = 'user';
   tour.from = null;
-  poseToCamera(openingPose());
-  controls.target.copy(openingPose().target);
+  poseToCamera(camMode === 'cinematic' && buildTime >= director.endTime ? director.poseAt(director.endTime) : openingPose());
+}
+
+function setCamMode(mode) {
+  camMode = mode;
+  ui.cam.value = mode;
+  tour.from = null;
+  tour.t = 0;
+  if (mode === 'overview') {
+    tour.state = buildTime >= buildEnd ? 'done' : 'build';
+    poseToCamera(openingPose());
+  } else {
+    tour.state = 'build';
+  }
 }
 
 ui.replay.addEventListener('click', replay);
@@ -234,12 +269,15 @@ ui.pause.addEventListener('click', () => setPaused(!paused));
 ui.finish.addEventListener('click', finish);
 ui.view.addEventListener('click', resetView);
 ui.speed.addEventListener('change', () => { speed = parseFloat(ui.speed.value); });
+ui.cam.addEventListener('change', () => setCamMode(ui.cam.value));
+ui.cam.value = camMode;
 window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLSelectElement) return;
   if (e.code === 'Space') { e.preventDefault(); setPaused(!paused); }
   else if (e.key === 'r' || e.key === 'R') replay();
   else if (e.key === 'f' || e.key === 'F') finish();
   else if (e.key === 'v' || e.key === 'V') resetView();
+  else if (e.key === 'c' || e.key === 'C') setCamMode(camMode === 'cinematic' ? 'overview' : 'cinematic');
 });
 
 // ------------------------------------------------------------------ layout
@@ -251,11 +289,8 @@ function resize() {
   renderer.setSize(w, h);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  if (tour.state === 'build' && !tour.from) {
-    const p = openingPose();
-    poseToCamera(p);
-    controls.target.copy(p.target);
-  }
+  if (director) director.refit();
+  if (camMode === 'overview' && tour.state === 'build' && !tour.from) poseToCamera(openingPose());
 }
 new ResizeObserver(resize).observe(bar);
 window.addEventListener('resize', resize);
@@ -264,14 +299,19 @@ window.addEventListener('resize', resize);
 
 function boot() {
   resize();
-  const p = openingPose();
-  poseToCamera(p);
-  controls.target.copy(p.target);
   const t0 = performance.now();
   const layout = buildMosaic({ seed: SEED });
   buildEnd = assignTimeline(layout.tiles, SEED);
   mosaic = buildMosaicMesh(layout.tiles, { seed: SEED });
   scene.add(mosaic.mesh);
+  bed = buildBed(PANEL, MORTAR, buildSinopia(layout));
+  scene.add(bed.group);
+
+  // the cinematic opening finds the very first stone of the wordmark
+  const first = layout.tiles.reduce((a, b) => (b.group === 'letter' && b.start < a.start ? b : a), { start: Infinity });
+  director = createDirector({ fitRadius, firstStone: centroid(first.poly), dots: dotsCentre, aspect: () => camera.aspect });
+  poseToCamera(camMode === 'cinematic' ? director.poseAt(0) : openingPose());
+
   stats = { ...layout.stats, buildEnd: +buildEnd.toFixed(2), setupMs: Math.round(performance.now() - t0) };
   ui.count.textContent = `${layout.tiles.length.toLocaleString('en-GB')} tesserae`;
   loading.classList.add('done');
@@ -280,23 +320,34 @@ function boot() {
     get time() { return buildTime; },
     set time(v) { buildTime = v; },
     get tour() { return tour.state; },
+    get mode() { return camMode; },
     setSpeed(v) { speed = v; },
+    setCamMode,
     finish, replay, resetView,
     pose: () => currentPose(),
-    stepTour(seconds, step = 0.05) { for (let t = 0; t < seconds; t += step) tourTick(step); },
+    cameraPath(step = 0.1) {
+      const out = [];
+      for (let t = 0; t <= director.endTime + 1e-6; t += step) {
+        const p = director.poseAt(t);
+        const sp = Math.sin(p.polar);
+        out.push([t, p.target.x + p.radius * sp * Math.sin(p.azimuth), p.target.y + p.radius * Math.cos(p.polar), p.target.z + p.radius * sp * Math.cos(p.azimuth), p.radius]);
+      }
+      return out;
+    },
+    stepTour(seconds, step = 0.05) { for (let t = 0; t < seconds; t += step) overviewTick(step); },
     setPose(name) {
       tour.state = 'user';
       const p = typeof name === 'object'
         ? { target: new THREE.Vector3(...name.target), polar: THREE.MathUtils.degToRad(name.polar), azimuth: THREE.MathUtils.degToRad(name.azimuth), radius: name.radius }
         : name === 'close' ? closePose() : openingPose();
       poseToCamera(p);
-      controls.target.copy(p.target);
     },
   };
   last = performance.now();
   requestAnimationFrame(frame);
 }
 
+const clamp01 = (x) => Math.min(1, Math.max(0, x));
 let last = performance.now();
 let fpsStart = performance.now(), fpsFrames = 0;
 function frame(now) {
@@ -304,9 +355,15 @@ function frame(now) {
   last = now;
   if (!paused) buildTime += dt * speed;
   mosaic.uniforms.uTime.value = buildTime;
-  bed.uniforms.uBed.value = Math.min(1, buildTime / BED_TIME);
-  const driven = paused ? tour.state !== 'user' && tour.state !== 'done' : tourTick(dt);
+  bed.uniforms.uBed.value = clamp01(buildTime / BED.to);
+  bed.uniforms.uSinopia.value = clamp01((buildTime - SINOPIA.from) / (SINOPIA.to - SINOPIA.from));
+  bed.uniforms.uSinopiaFade.value = 1 - smoother(clamp01((buildTime - SINOPIA_FADE.from) / (SINOPIA_FADE.to - SINOPIA_FADE.from)));
+  const driven = paused ? tour.state !== 'user' && (camMode === 'cinematic' || tour.state !== 'done') : cameraTick(dt);
   if (!driven) controls.update();
+  // fog only ever reaches the far table, whatever the camera distance
+  const dist = camera.position.distanceTo(controls.target);
+  scene.fog.near = dist * 1.25 + 10;
+  scene.fog.far = dist * 5 + 90;
   renderer.render(scene, camera);
   ui.phase.textContent = paused ? 'Paused' : phaseAt(buildTime, buildEnd);
   ui.progress.style.transform = `scaleX(${Math.min(1, buildTime / buildEnd)})`;

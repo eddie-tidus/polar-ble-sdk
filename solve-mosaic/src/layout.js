@@ -353,8 +353,9 @@ export function buildMosaic({ seed = 7878, targetCount = 7878 } = {}) {
       { r0: R * 0.31, r1: R * 0.67, n: 6, tone: 'turquoise' },
       { r0: R * 0.67, r1: R, n: 10, tone: 'turquoise' },
     ], 0.07, rDots, (ring, ri, f) => ({
+      // both dots together, outer ring first, each ring running round in turn
       tone: ring.tone, group: 'dot', region: reg, phase: 'dots',
-      prog: (di + (2 - ri) / 3 + f / 3.2) / 2,
+      prog: Math.min(1, ((2 - ri) + f * 0.92 + di * 0.08) / 3),
     }), true);
   });
 

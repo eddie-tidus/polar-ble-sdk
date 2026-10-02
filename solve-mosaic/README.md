@@ -34,27 +34,36 @@ The controls sit in a bar below the artwork.
 | Control | Action |
 | --- | --- |
 | Replay (`R`) | Restart the construction from the mortar bed |
-| Pause / Play (`Space`) | Freeze or resume construction and the camera tour |
+| Pause / Play (`Space`) | Freeze or resume construction and the camera |
 | Speed | 0.5×, 1×, 2× or 4× construction speed |
-| Completed mosaic (`F`) | Jump straight to the finished panel |
+| Camera (`C`) | **Cinematic**: a choreographed move tied to the build. **Overview**: the full panel throughout, then a glide to the "o" and back |
+| Completed mosaic (`F`) | Jump straight to the finished panel (and, in Cinematic, its closing shot) |
 | Full view (`V`) | Return the camera to the full composition |
-| Drag / right-drag / scroll | Orbit, pan and zoom. Any manual input takes over from the automatic camera |
+| Drag / right-drag / scroll | Orbit, pan and zoom. Any manual input takes over from the automatic camera until Replay |
+
+Viewers who have asked their system for reduced motion start in Overview and
+skip the automatic glide.
 
 ## What happens
 
-1. **Mortar bed** (0–2.4 s): spread across the backing slab with an uneven,
-   damp leading edge.
-2. **Wordmark contours** (2.6–7.6 s): the outer course of each letter, traced
-   letter by letter.
-3. **Letter fill and dots** (7.4–12.9 s): inner courses, then the turquoise dots,
-   ring by ring.
-4. **Paper planes** (12.9–19 s): facet by facet, followed by each dashed trail.
-5. **Background** (19–28.6 s): courses spread outwards from every subject and
-   inwards from the frame.
-6. **Border** (28.2–33.2 s): laid clockwise from the top-left corner.
+The cinematic camera is keyed to the construction clock rather than to wall
+time, so each move lands on the stones it is meant to show at any speed, and it
+holds when paused.
 
-Construction completes at about 34 s at 1×. The camera then glides to the open
-"o" and its dots to show individual stones, lingers, and returns to the full view.
+| Time (1×) | Construction | Cinematic camera |
+| --- | --- | --- |
+| 0–2.2 s | Mortar bed spread with a damp, uneven front | Low macro on the bed surface |
+| 1–3.4 s | Red-ochre guidelines (the sinopia) drawn onto the bed | Still low, easing towards the start of the "s" |
+| 3–8 s | Outer course of each letter, traced letter by letter | Pulls back and rises to a three-quarter view of the framed panel on its table |
+| 7.8–11.6 s | Inner letter courses | Higher, gentle orbit |
+| 11.6–15 s | Turquoise dots, ring by ring, outer ring first | In to the open "o", then a macro as the rings cascade in |
+| 15–20.5 s | Paper planes facet by facet, then their dashed trails | Back out over the planes |
+| 20.5–29.5 s | Background spreads outwards from every subject and in from the frame | Slow overhead orbit |
+| 29–34 s | Border laid clockwise from the top-left corner; the guidelines fade | Lower three-quarter, rising |
+| about 37.5 s | Complete | Settles on a straight-on view of the whole panel |
+
+Each stone drops a short way, lands, rebounds very slightly and is pressed into
+the bed.
 
 ## How it is made
 
@@ -77,11 +86,22 @@ Construction completes at about 34 s at 1×. The camera then glides to the open
   planes 247, trails 165, background 3,688 (444 cut filler pieces) and border
   2,624. To land on the target, the 71 smallest background slivers are left as
   mortar.
+- **Sinopia** (`src/sinopia.js`): the red-ochre underdrawing is generated from
+  the design's own geometry: field axes, type guide lines, frame bands, letter,
+  dot and plane outlines, flight paths and the meander's path. It is held as a
+  small texture recording both the ink and the order in which each stroke is
+  drawn, so it can be revealed stroke by stroke.
+- **Staging**: a mitred walnut frame on a plank table, both with procedural wood
+  grain. Distance fog fades the far table out at every camera distance.
 - **Rendering** (`src/mosaic.js`): a single instanced draw call. Each instance is
   a bevelled prism with its own 3–6-corner outline, height, slight tilt, colour,
   roughness and settling animation, all computed in the vertex shader. A
   procedural fragment shader adds grain, mottling and a small bump. Shadows come
-  from a directional key light.
+  from a directional key light. Stone depth follows stone width, so falling
+  tesserae read as roughly cubic.
+- **Camera** (`src/director.js`): 15 keyed poses joined by a cubic spline, so
+  the camera never stops dead between keys. Wide shots are fitted to the
+  viewport; close-ups back off on narrow screens.
 - **Reproducibility**: every random choice comes from a seeded generator
   (`src/rng.js`, seed 7878), so each load lays the same mosaic.
 
