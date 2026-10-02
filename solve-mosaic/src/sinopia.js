@@ -45,37 +45,38 @@ export function buildSinopia({ wm, planes, trails }) {
   const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
 
   // 1. Setting out: the field, its axes, and the type guides for the wordmark.
-  stroke(rect(FIELD.x0, FIELD.y0, FIELD.x1, FIELD.y1), 0.0, 0.08, { closed: true });
-  stroke([[FIELD.x0, 0], [FIELD.x1, 0]], 0.05, 0.1, { strength: 0.55, width: 0.07 });
-  stroke([[0, FIELD.y0], [0, FIELD.y1]], 0.06, 0.11, { strength: 0.55, width: 0.07 });
+  stroke(rect(FIELD.x0, FIELD.y0, FIELD.x1, FIELD.y1), 0.0, 0.06, { closed: true });
+  stroke([[FIELD.x0, 0], [FIELD.x1, 0]], 0.04, 0.08, { strength: 0.55, width: 0.07 });
+  stroke([[0, FIELD.y0], [0, FIELD.y1]], 0.05, 0.09, { strength: 0.55, width: 0.07 });
   const xl = toWorld([-20, 0])[0], xr = toWorld([1220, 0])[0];
   for (const py of [18, 104.9, 364.9]) { // ascender, x-height, baseline in reference pixels
     const y = toWorld([0, py])[1];
-    stroke([[xl, y], [xr, y]], 0.09, 0.15, { strength: 0.5, width: 0.06 });
+    stroke([[xl, y], [xr, y]], 0.06, 0.1, { strength: 0.5, width: 0.06 });
   }
 
-  // 2. The frame band and corner squares.
+  // 3. The frame band and corner squares.
   for (const v of [0, 1, 2, 7, 8, 9]) {
-    stroke(rect(PANEL.x0 + v, PANEL.y0 + v, PANEL.x1 - v, PANEL.y1 - v), 0.12 + v * 0.012, 0.2 + v * 0.012, { closed: true, strength: 0.8, width: 0.07 });
+    stroke(rect(PANEL.x0 + v, PANEL.y0 + v, PANEL.x1 - v, PANEL.y1 - v), 0.34 + v * 0.008, 0.4 + v * 0.008, { closed: true, strength: 0.8, width: 0.07 });
   }
   for (const [cx, cy] of [[PANEL.x0, PANEL.y1], [PANEL.x1, PANEL.y1], [PANEL.x1, PANEL.y0], [PANEL.x0, PANEL.y0]]) {
     const sx = cx < 0 ? 1 : -1, sy = cy < 0 ? 1 : -1;
     const c = [cx + sx * 4.5, cy + sy * 4.5];
     const circ = [];
     for (let i = 0; i < 48; i++) circ.push([c[0] + 2.45 * Math.cos((i / 48) * Math.PI * 2), c[1] + 2.45 * Math.sin((i / 48) * Math.PI * 2)]);
-    stroke(circ, 0.26, 0.3, { closed: true, strength: 0.8, width: 0.07 });
+    stroke(circ, 0.46, 0.5, { closed: true, strength: 0.8, width: 0.07 });
   }
 
-  // 3. The wordmark, letter by letter, then the dots.
+  // 4. The wordmark, letter by letter, then the dots.
   wm.letters.forEach((l, i) => {
-    const o0 = 0.3 + i * 0.065;
-    l.rings.forEach((r) => stroke(r, o0, o0 + 0.06, { closed: true }));
+    const o0 = 0.5 + i * 0.058;
+    l.rings.forEach((r) => stroke(r, o0, o0 + 0.055, { closed: true }));
   });
-  wm.dots.forEach((d, i) => stroke(d.ring, 0.63 + i * 0.015, 0.645 + i * 0.015, { closed: true }));
+  wm.dots.forEach((d, i) => stroke(d.ring, 0.8 + i * 0.02, 0.82 + i * 0.02, { closed: true }));
 
-  // 4. Planes (outline and folds) and their flight paths.
+  // 2. Planes (outline and folds) and their flight paths, drawn early so the
+  //    opening chase follows a freshly drawn line.
   planes.forEach((pl, i) => {
-    const o0 = 0.66 + i * 0.04;
+    const o0 = 0.1 + i * 0.06;
     stroke(pl.geo.outline, o0, o0 + 0.025, { closed: true });
     for (const f of pl.geo.facets) stroke([f.foldFrom, f.foldTo], o0 + 0.02, o0 + 0.03, { strength: 0.7, width: 0.07 });
     stroke(trails[i].pts, o0 + 0.01, o0 + 0.04, { strength: 0.6, width: 0.07 });

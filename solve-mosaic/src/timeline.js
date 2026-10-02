@@ -4,17 +4,26 @@
 import { Rng } from './rng.js';
 
 export const PHASES = [
-  { id: 'bed', label: 'Spreading the mortar bed', from: 0.0, to: 2.2 },
-  { id: 'sinopia', label: 'Drawing the red-ochre guidelines', from: 1.0, to: 3.4 },
-  { id: 'outline', label: 'Setting the wordmark contours', from: 3.0, to: 8.0 },
-  { id: 'fill', label: 'Filling the letters', from: 7.8, to: 11.6 },
-  { id: 'dots', label: 'Setting the turquoise dots', from: 11.6, to: 15.0 },
-  { id: 'planes', label: 'Laying the paper planes', from: 15.0, to: 20.5 },
-  { id: 'background', label: 'Flowing the background', from: 20.5, to: 29.5 },
-  { id: 'border', label: 'Laying the border', from: 29.0, to: 34.0 },
+  { id: 'bed', label: 'Spreading the mortar bed', from: 0.0, to: 2.0 },
+  { id: 'sinopia', label: 'Drawing the red-ochre guidelines', from: 0.6, to: 2.8 },
+  { id: 'planes', label: 'Laying the flight paths and paper planes', from: 2.4, to: 14.4 },
+  { id: 'border', label: 'Laying the border', from: 14.0, to: 17.4 },
+  { id: 'background', label: 'Closing the background in on the wordmark', from: 17.0, to: 25.0 },
+  { id: 'outline', label: 'Setting the wordmark contours', from: 24.6, to: 28.2 },
+  { id: 'fill', label: 'Filling the letters', from: 28.0, to: 31.0 },
+  { id: 'dots', label: 'Setting the turquoise dots', from: 30.8, to: 33.8 },
 ];
-// The red-ochre underdrawing fades as the final stones go down.
-export const SINOPIA_FADE = { from: 30.0, to: 34.5 };
+// Within the planes phase (fractions of it): each trail is laid from its far
+// end to its plane, then the plane itself. The two hero planes fly in turn;
+// the two small side planes go down together.
+export const FLIGHT = [
+  { trail: [0.0, 0.22], body: [0.2, 0.32] },
+  { trail: [0.45, 0.65], body: [0.63, 0.74] },
+  { trail: [0.8, 0.95], body: [0.93, 1.0] },
+  { trail: [0.8, 0.95], body: [0.93, 1.0] },
+];
+// The red-ochre underdrawing fades as the last stones go down.
+export const SINOPIA_FADE = { from: 30.5, to: 34.5 };
 const BY_ID = Object.fromEntries(PHASES.map((p) => [p.id, p]));
 
 export function assignTimeline(tiles, seed) {

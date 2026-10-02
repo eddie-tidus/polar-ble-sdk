@@ -52,15 +52,17 @@ holds when paused.
 
 | Time (1×) | Construction | Cinematic camera |
 | --- | --- | --- |
-| 0–2.2 s | Mortar bed spread with a damp, uneven front | Low macro on the bed surface |
-| 1–3.4 s | Red-ochre guidelines (the sinopia) drawn onto the bed | Still low, easing towards the start of the "s" |
-| 3–8 s | Outer course of each letter, traced letter by letter | Pulls back and rises to a three-quarter view of the framed panel on its table |
-| 7.8–11.6 s | Inner letter courses | Higher, gentle orbit |
-| 11.6–15 s | Turquoise dots, ring by ring, outer ring first | In to the open "o", then a macro as the rings cascade in |
-| 15–20.5 s | Paper planes facet by facet, then their dashed trails | Back out over the planes |
-| 20.5–29.5 s | Background spreads outwards from every subject and in from the frame | Slow overhead orbit |
-| 29–34 s | Border laid clockwise from the top-left corner; the guidelines fade | Lower three-quarter, rising |
-| about 37.5 s | Complete | Settles on a straight-on view of the whole panel |
+| 0–2 s | Mortar bed spread with a damp, uneven front | Low macro at the start of the first flight path |
+| 0.6–2.8 s | Red-ochre guidelines (the sinopia): setting-out lines and flight paths first, then frame, wordmark and meander | Still low, waiting at the start of the path |
+| 2.4–6.2 s | First hero trail, laid stone by stone from its far end, then its plane | Chases the laying point along the trail and arrives with the plane |
+| 7.8–11.3 s | Second hero trail and plane | Lifts over the panel, drops in behind the second trail and chases it |
+| 12–14.4 s | Both small side trails and planes together | Wide, rising view |
+| 14–17.4 s | Border, clockwise from the top-left corner | High overhead |
+| 17–25 s | Background, laid from the outside in, until only the wordmark's shape is left bare | Descends towards the wordmark |
+| 24.6–28.2 s | Letter contours, "s" to "e" | Tracks along the wordmark |
+| 28–31 s | Inner letter courses | Rises to frame the whole wordmark |
+| 30.8–33.8 s | The turquoise dots, the final stones, ring by ring | Close-up as the rings cascade in |
+| about 38 s | Complete; the guidelines have faded | Straight-on view of the whole panel |
 
 Each stone drops a short way, lands, rebounds very slightly and is pressed into
 the bed.
@@ -99,9 +101,10 @@ the bed.
   procedural fragment shader adds grain, mottling and a small bump. Shadows come
   from a directional key light. Stone depth follows stone width, so falling
   tesserae read as roughly cubic.
-- **Camera** (`src/director.js`): 15 keyed poses joined by a cubic spline, so
-  the camera never stops dead between keys. Wide shots are fitted to the
-  viewport; close-ups back off on narrow screens.
+- **Camera** (`src/director.js`): keyed poses joined by a cubic spline, so the
+  camera never stops dead between keys. The chase keys are generated from the
+  trail curves themselves, so the camera rides behind each path's laying point.
+  Wide shots are fitted to the viewport; close-ups back off on narrow screens.
 - **Reproducibility**: every random choice comes from a seeded generator
   (`src/rng.js`, seed 7878), so each load lays the same mosaic.
 

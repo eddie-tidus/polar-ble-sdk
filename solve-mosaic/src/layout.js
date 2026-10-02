@@ -14,6 +14,7 @@ import {
   simplifyConvex, resample, sampleBezierChain,
 } from './geom.js';
 import { Rng } from './rng.js';
+import { FLIGHT } from './timeline.js';
 import { FIELD, PANEL, BORDER, wordmark, PLANES, planeGeometry } from './compose.js';
 
 const RES = 1 / 16;
@@ -22,6 +23,7 @@ const GAP_FINE = 0.08; // joints in the lettering, planes and dots
 const TAU = Math.PI * 2;
 
 const LETTER_ORDER = ['s', 'o', 'l', 'v', 'e'];
+const mix = ([a, b], t) => a + (b - a) * Math.min(1, Math.max(0, t));
 
 export function buildMosaic({ seed = 7878, targetCount = 7878 } = {}) {
   const t0 = performance.now();
@@ -424,21 +426,21 @@ export function buildMosaic({ seed = 7878, targetCount = 7878 } = {}) {
           const uf = 1 - ((cuts[k] + cuts[k + 1]) / 2 - umin) / Math.max(span, 1e-6); // nose first
           place(pc, {
             tone: f.tone, group: 'plane', region: pl.facetRegions[fi], phase: 'planes',
-            prog: (pi + 0.7 * ((facetOrder[f.name] + (r + uf) / rows) / 3)) / planes.length,
+            prog: mix(FLIGHT[pi].body, (facetOrder[f.name] + (r + uf) / rows) / 3),
           }, 0.05, 0.08);
         }
       }
     });
-    // trail: one dashed course, laid from the plane backwards
+    // trail: one dashed course, laid from its far end up to the plane
     const tr = trails[pi];
-    const line = { pts: tr.pts.slice().reverse(), closed: false };
+    const line = { pts: tr.pts, closed: false };
     const tone = pl.spec.trailTone;
     layCourse(line, {
       halfUp: TRAIL_W / 2 - GAP_FINE / 2, halfDown: TRAIL_W / 2 - GAP_FINE / 2, len: 0.62,
       gap: GAP_FINE, rng: rPlanes, normalSign: 1,
       meta: (i, s, L) => ({
         tone: i % 5 < 3 ? tone : 'charcoal', group: i % 5 < 3 ? 'trail' : 'trail-gap', region: 0,
-        phase: 'planes', prog: (pi + 0.7 + 0.3 * (s / L)) / planes.length,
+        phase: 'planes', prog: mix(FLIGHT[pi].trail, s / L),
       }),
     });
   });
@@ -759,6 +761,17 @@ export function buildMosaic({ seed = 7878, targetCount = 7878 } = {}) {
   }
 
   // ------------------------------------------------------------ finish
+
+  // The background is laid from the outside in, closing on the wordmark: each
+  // stone's moment in the phase follows its distance from the lettering.
+  {
+    const dLogo = edt(grid, (k) => letterMask[k] || dotMask[k]);
+    const rOrder = rng.fork(83);
+    const bg = tiles.filter((t) => t.group === 'background');
+    const dist = bg.map((t) => { const c = centroid(t.poly); return sample(grid, dLogo, c[0], c[1]); });
+    const dMax = Math.max(...dist);
+    bg.forEach((t, i) => { t.prog = Math.min(1, Math.max(0, 1 - dist[i] / dMax + rOrder.jitter(0.012))); });
+  }
 
   // If the laying overshoots the target count, leave the smallest cut pieces
   // out (those slivers become mortar). The composition is unaffected.

@@ -5,10 +5,9 @@ import { buildMosaic } from './layout.js';
 import { buildMosaicMesh, buildBed, buildStage } from './mosaic.js';
 import { buildSinopia } from './sinopia.js';
 import { createDirector } from './director.js';
-import { assignTimeline, phaseAt, PHASES, SINOPIA_FADE } from './timeline.js';
+import { assignTimeline, phaseAt, PHASES, FLIGHT, SINOPIA_FADE } from './timeline.js';
 import { PANEL, MORTAR, toWorld } from './compose.js';
 import { O_GEOM, DOTS } from './logo.js';
-import { centroid } from './geom.js';
 
 const SEED = 7878;
 const phase = (id) => PHASES.find((p) => p.id === id);
@@ -307,9 +306,10 @@ function boot() {
   bed = buildBed(PANEL, MORTAR, buildSinopia(layout));
   scene.add(bed.group);
 
-  // the cinematic opening finds the very first stone of the wordmark
-  const first = layout.tiles.reduce((a, b) => (b.group === 'letter' && b.start < a.start ? b : a), { start: Infinity });
-  director = createDirector({ fitRadius, firstStone: centroid(first.poly), dots: dotsCentre, aspect: () => camera.aspect });
+  director = createDirector({
+    fitRadius, aspect: () => camera.aspect, phases: PHASES, flight: FLIGHT,
+    trails: layout.trails, planes: layout.planes, letters: layout.wm.letters, dots: dotsCentre,
+  });
   poseToCamera(camMode === 'cinematic' ? director.poseAt(0) : openingPose());
 
   stats = { ...layout.stats, buildEnd: +buildEnd.toFixed(2), setupMs: Math.round(performance.now() - t0) };
@@ -330,7 +330,7 @@ function boot() {
       for (let t = 0; t <= director.endTime + 1e-6; t += step) {
         const p = director.poseAt(t);
         const sp = Math.sin(p.polar);
-        out.push([t, p.target.x + p.radius * sp * Math.sin(p.azimuth), p.target.y + p.radius * Math.cos(p.polar), p.target.z + p.radius * sp * Math.cos(p.azimuth), p.radius]);
+        out.push([t, p.target.x + p.radius * sp * Math.sin(p.azimuth), p.target.y + p.radius * Math.cos(p.polar), p.target.z + p.radius * sp * Math.cos(p.azimuth), p.radius, p.azimuth, p.polar, p.target.x, p.target.z]);
       }
       return out;
     },
