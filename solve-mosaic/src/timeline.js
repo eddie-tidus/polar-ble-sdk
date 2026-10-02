@@ -6,24 +6,22 @@ import { Rng } from './rng.js';
 export const PHASES = [
   { id: 'bed', label: 'Spreading the mortar bed', from: 0.0, to: 2.0 },
   { id: 'sinopia', label: 'Drawing the red-ochre guidelines', from: 0.6, to: 2.8 },
-  { id: 'planes', label: 'Laying the flight paths and paper planes', from: 2.4, to: 14.4 },
-  { id: 'border', label: 'Laying the border', from: 14.0, to: 17.4 },
-  { id: 'background', label: 'Closing the background in on the wordmark', from: 17.0, to: 25.0 },
-  { id: 'outline', label: 'Setting the wordmark contours', from: 24.6, to: 28.2 },
-  { id: 'fill', label: 'Filling the letters', from: 28.0, to: 31.0 },
-  { id: 'dots', label: 'Setting the turquoise dots', from: 30.8, to: 33.8 },
+  { id: 'planes', label: 'Laying the flight paths and paper planes', from: 2.4, to: 18.6 },
+  { id: 'border', label: 'Laying the border', from: 18.2, to: 21.4 },
+  { id: 'background', label: 'Closing the background in', from: 21.0, to: 28.4 },
+  { id: 'outline', label: 'Setting the wordmark contours', from: 28.0, to: 31.4 },
+  { id: 'fill', label: 'Filling the letters', from: 31.2, to: 34.0 },
+  { id: 'dots', label: 'Setting the turquoise dots', from: 33.8, to: 36.8 },
 ];
-// Within the planes phase (fractions of it): each trail is laid from its far
-// end to its plane, then the plane itself. The two hero planes fly in turn;
-// the two small side planes go down together.
-export const FLIGHT = [
-  { trail: [0.0, 0.22], body: [0.2, 0.32] },
-  { trail: [0.45, 0.65], body: [0.63, 0.74] },
-  { trail: [0.8, 0.95], body: [0.93, 1.0] },
-  { trail: [0.8, 0.95], body: [0.93, 1.0] },
-];
-// The red-ochre underdrawing fades as the last stones go down.
-export const SINOPIA_FADE = { from: 30.5, to: 34.5 };
+// The four flights go clockwise round the panel, one after another: red (top
+// right), yellow (down the right side), blue (along the bottom), green (up the
+// left side). Each trail is laid from its far end to its plane, then the
+// plane itself. Values are fractions of the planes phase, indexed by plane.
+const slot = (k) => ({ trail: [k * 0.25, k * 0.25 + 0.13], body: [k * 0.25 + 0.12, k * 0.25 + 0.18] });
+export const FLIGHT_ORDER = [0, 3, 1, 2];
+export const FLIGHT = [slot(0), slot(2), slot(3), slot(1)];
+// The red-ochre underdrawing fades once the planes and border are down.
+export const SINOPIA_FADE = { from: 21.5, to: 24.5 };
 const BY_ID = Object.fromEntries(PHASES.map((p) => [p.id, p]));
 
 export function assignTimeline(tiles, seed) {

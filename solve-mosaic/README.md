@@ -1,8 +1,9 @@
 # Solve, imagined as a Roman mosaic
 
 An interactive Three.js artwork. The Solve wordmark becomes the centrepiece of a
-Roman floor panel, surrounded by tessellated paper planes, flowing background courses
-and a meander border. All 7,878 tesserae are separate 3D stones, generated
+Roman floor panel, surrounded by four paper planes in the Solve motif (coloured
+origami darts with dotted white flight paths), flowing background courses and a
+meander border. All 7,878 tesserae are separate 3D stones, generated
 procedurally in the browser and laid one by one.
 
 ## Run it
@@ -53,16 +54,17 @@ holds when paused.
 | Time (1×) | Construction | Cinematic camera |
 | --- | --- | --- |
 | 0–2 s | Mortar bed spread with a damp, uneven front | Low macro at the start of the first flight path |
-| 0.6–2.8 s | Red-ochre guidelines (the sinopia): setting-out lines and flight paths first, then frame, wordmark and meander | Still low, waiting at the start of the path |
-| 2.4–6.2 s | First hero trail, laid stone by stone from its far end, then its plane | Chases the laying point along the trail and arrives with the plane |
-| 7.8–11.3 s | Second hero trail and plane | Lifts over the panel, drops in behind the second trail and chases it |
-| 12–14.4 s | Both small side trails and planes together | Wide, rising view |
-| 14–17.4 s | Border, clockwise from the top-left corner | High overhead |
-| 17–25 s | Background, laid from the outside in, until only the wordmark's shape is left bare | Descends towards the wordmark |
-| 24.6–28.2 s | Letter contours, "s" to "e" | Tracks along the wordmark |
-| 28–31 s | Inner letter courses | Rises to frame the whole wordmark |
-| 30.8–33.8 s | The turquoise dots, the final stones, ring by ring | Close-up as the rings cascade in |
-| about 38 s | Complete; the guidelines have faded | Straight-on view of the whole panel |
+| 0.6–2.8 s | Red-ochre guidelines (the sinopia): setting-out lines, flight paths and planes, frame bands, meander. The wordmark is deliberately not drawn | Still low, waiting at the start of the path |
+| 2.4–5.3 s | Red plane (top right): its dotted trail, stone by stone from the far end, then the plane | Rides beside the laying point and arrives with the plane |
+| 6.5–9.3 s | Yellow plane, down the right side | Short lift, then the same chase |
+| 10.5–13.4 s | Blue plane, along the bottom | Lift across the panel, then the chase |
+| 14.6–17.4 s | Green plane, up the left side | Short lift, then the chase |
+| 18.2–21.4 s | Border, clockwise from the top-left corner; the guidelines fade | Out to the whole panel, high overhead |
+| 21–28.4 s | Background, laid from the outside in, until only the wordmark's shape is left bare | Descends towards the wordmark |
+| 28–31.4 s | Letter contours, "s" to "e" | Tracks along the wordmark |
+| 31.2–34 s | Inner letter courses | Rises to frame the whole wordmark |
+| 33.8–36.8 s | The turquoise dots, the final stones, ring by ring | Close-up as the rings cascade in |
+| about 41 s | Complete | Straight-on view of the whole panel |
 
 Each stone drops a short way, lands, rebounds very slightly and is pressed into
 the bed.
@@ -84,23 +86,35 @@ the bed.
     Where neighbouring courses meet, each stone is cut back to a clean seam. Any
     remaining hole is filled with irregular cut pieces.
   - The border is a grid-aligned meander with turquoise-centred corner medallions.
-- **Count**: 7,878 stones. Letters 1,120 (93 of them cut filler pieces), dots 34,
-  planes 247, trails 165, background 3,688 (444 cut filler pieces) and border
-  2,624. To land on the target, the 71 smallest background slivers are left as
-  mortar.
+- **Paper planes** (`src/compose.js`): the Solve motif seen from above, a
+  light wing and a dark wing meeting at the centre fold with a small keel in the
+  notch behind, in red, yellow, blue and green stone and glass. Trails are
+  dotted: round-cut white stones with a dark stone between each.
+- **Count**: 7,878 stones. Letters 1,100 (71 of them cut filler pieces), dots 34,
+  planes 254, trails 155 (79 white dots and 76 dark stones between them),
+  background 3,711 (540 cut filler pieces) and border 2,624. To land on the
+  target, the 27 smallest background slivers are left as mortar.
 - **Sinopia** (`src/sinopia.js`): the red-ochre underdrawing is generated from
-  the design's own geometry: field axes, type guide lines, frame bands, letter,
-  dot and plane outlines, flight paths and the meander's path. It is held as a
+  the design's own geometry: field axes, type guide lines, frame bands, plane
+  outlines, flight paths and the meander's path. The letters and dots are left
+  out so the wordmark is not given away early. It is held as a
   small texture recording both the ink and the order in which each stroke is
   drawn, so it can be revealed stroke by stroke.
-- **Staging**: a mitred walnut frame on a plank table, both with procedural wood
-  grain. Distance fog fades the far table out at every camera distance.
+- **Staging and light**: a mitred walnut frame on a plank table, both with
+  procedural wood grain, under a low warm key light that rakes across the
+  stones, a cool sky fill and a faint back light. The table falls away into
+  shadow beyond the panel, and distance fog fades its far edge.
+- **Mortar** (`src/joints.js`): stones stand a little proud of a gritty lime
+  mortar with visible joints. A shading map built from the laid stones darkens
+  joints where stones crowd round them, appearing only as those stones land.
 - **Rendering** (`src/mosaic.js`): a single instanced draw call. Each instance is
   a bevelled prism with its own 3–6-corner outline, height, slight tilt, colour,
   roughness and settling animation, all computed in the vertex shader. A
-  procedural fragment shader adds grain, mottling and a small bump. Shadows come
-  from a directional key light. Stone depth follows stone width, so falling
-  tesserae read as roughly cubic.
+  procedural fragment shader gives each material its own surface: veined marble
+  (lettering, limestone, red and yellow), speckled dark stone with faint glints,
+  smoother glass with tiny bubbles (turquoise, blue, green) and pitted fired
+  clay (terracotta), all on slightly uneven cut faces. Stone depth follows stone
+  width, so falling tesserae read as roughly cubic.
 - **Camera** (`src/director.js`): keyed poses joined by a cubic spline, so the
   camera never stops dead between keys. The chase keys are generated from the
   trail curves themselves, so the camera rides behind each path's laying point.

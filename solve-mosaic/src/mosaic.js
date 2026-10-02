@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { insetConvex, centroid, signedArea } from './geom.js';
 import { Rng } from './rng.js';
-import { STONE } from './compose.js';
+import { STONE, STONE_KIND } from './compose.js';
 
 const MAXC = 6;
 
@@ -181,26 +181,54 @@ function tileMaterial(uniforms) {
       .replace(
         '#include <color_fragment>',
         /* glsl */ `#include <color_fragment>
-        float grain = vnoise(vStone * 3.3);
-        float mottle = vnoise(vStone * 0.55 + 7.0);
-        float fleck = smoothstep(0.82, 0.9, vnoise(vStone * 9.0 + 3.0));
-        vec3 stone = vTileColor * (0.9 + 0.1 * mottle + 0.06 * (grain - 0.5));
-        stone = mix(stone, stone * 0.78, fleck * 0.5);
-        diffuseColor.rgb *= stone * mix(0.42, 1.0, vShade);`
+        // vRough carries the stone kind in its integer part:
+        // 0 dark stone, 1 marble, 2 glass (smalti), 3 fired clay
+        float kind = floor(vRough * 0.5);
+        float rough0 = vRough - kind * 2.0;
+        vec3 q = vStone;
+        // three shared noise octaves feed every effect below
+        float pillow = vnoise(q * 0.75);          // the uneven cut face, mottling
+        float grain = vnoise(q * 3.6);
+        float fine = vnoise(q * 12.0);
+        vec3 stone = vTileColor * (0.9 + 0.12 * pillow + 0.06 * (grain - 0.5));
+        float hgt = pillow * 0.55 + grain * 0.22 + fine * 0.07;
+        float glint = 0.0;
+        if (kind < 0.5) {
+          // dark stone: fine speckle and faint crystalline glints
+          stone *= 1.0 - 0.2 * smoothstep(0.86, 0.93, fine);
+          glint = smoothstep(0.95, 0.985, vnoise(q * 26.0 + 5.0));
+          stone += glint * 0.03;
+        } else if (kind < 1.5) {
+          // marble: soft, wandering veins
+          float vein = abs(sin(dot(q.xy, vec2(0.9, 0.45)) * 2.1 + vnoise(q * 0.9 + 3.0) * 5.0 + grain * 1.2));
+          float v = 1.0 - smoothstep(0.0, 0.12, vein);
+          stone = mix(stone, stone * 0.7, v * 0.55);
+          hgt -= v * 0.05;
+        } else if (kind < 2.5) {
+          // glass: a smoother face with tiny bubbles
+          float bub = smoothstep(0.9, 0.95, fine);
+          stone = mix(stone, stone * 1.3, bub * 0.5);
+          hgt = pillow * 0.35 + bub * 0.08;
+        } else {
+          // fired clay: pitted and grainy
+          float pit = smoothstep(0.8, 0.9, fine);
+          stone *= 1.0 - 0.28 * pit;
+          hgt -= pit * 0.25;
+        }
+        diffuseColor.rgb *= stone * mix(0.4, 1.0, vShade);`
       )
       .replace(
         '#include <roughnessmap_fragment>',
         /* glsl */ `#include <roughnessmap_fragment>
-        roughnessFactor = clamp(vRough + 0.06 * (grain - 0.5), 0.3, 1.0);`
+        roughnessFactor = clamp(rough0 + 0.07 * (grain - 0.5) - glint * 0.45, 0.25, 1.0);`
       )
       .replace(
         '#include <normal_fragment_maps>',
         /* glsl */ `#include <normal_fragment_maps>
-        float hgt = vnoise(vStone * 2.2) * 0.6 + vnoise(vStone * 6.5) * 0.25;
-        normal = bumpNormal(normal, -vViewPosition, hgt, 0.035);`
+        normal = bumpNormal(normal, -vViewPosition, hgt, 0.085);`
       );
   };
-  mat.customProgramCacheKey = () => 'mosaic-tile-v3';
+  mat.customProgramCacheKey = () => 'mosaic-tile-v4';
   return mat;
 }
 
@@ -218,8 +246,12 @@ function tileDepthMaterial(uniforms) {
 
 // ------------------------------------------------------------------ build
 
-const TONE_ROUGHNESS = { ivory: 0.84, charcoal: 0.86, turquoise: 0.62, limestone: 0.9, terracotta: 0.92, greystone: 0.88 };
-const TONE_HEIGHT = { ivory: 0.24, turquoise: 0.25 };
+const TONE_ROUGHNESS = {
+  ivory: 0.7, charcoal: 0.78, turquoise: 0.4, limestone: 0.85, terracotta: 0.92, greystone: 0.82,
+  red: 0.68, redDark: 0.7, yellow: 0.68, yellowDark: 0.7, blue: 0.42, blueDark: 0.44, green: 0.42, greenDark: 0.44,
+};
+// Stones stand a little proud of the mortar; the lettering and dots slightly more.
+const TONE_HEIGHT = { ivory: 0.15, turquoise: 0.16 };
 
 export function buildMosaicMesh(tiles, { seed = 7878 } = {}) {
   const rng = new Rng(seed ^ 0x5eed);
@@ -257,8 +289,8 @@ export function buildMosaicMesh(tiles, { seed = 7878 } = {}) {
       B[a][o] = poly[k][0]; B[a][o + 1] = poly[k][1];
       T[a][o] = top[k][0]; T[a][o + 1] = top[k][1];
     }
-    const baseH = TONE_HEIGHT[t.tone] ?? 0.21;
-    shape[i * 4] = baseH + rng.gauss(0.018) + Math.min(0.05, size * 0.02);
+    const baseH = TONE_HEIGHT[t.tone] ?? 0.13;
+    shape[i * 4] = baseH + rng.gauss(0.014) + Math.min(0.04, size * 0.02);
     shape[i * 4 + 1] = bevel * 0.85;
     shape[i * 4 + 2] = rng.gauss(0.014);
     shape[i * 4 + 3] = rng.gauss(0.014);
@@ -266,10 +298,12 @@ export function buildMosaicMesh(tiles, { seed = 7878 } = {}) {
     const fam = families[t.tone] || families.charcoal;
     col.copy(fam[rng.int(fam.length)]);
     col.getHSL(hsl);
-    const dl = t.tone === 'charcoal' ? rng.gauss(0.009) : t.tone === 'ivory' ? rng.gauss(0.018) : rng.gauss(0.026);
+    // plane facets keep a tight range so each folded surface reads as one tone
+    const dl = t.tone === 'charcoal' ? rng.gauss(0.009) : t.tone === 'ivory' || t.group === 'plane' ? rng.gauss(0.016) : rng.gauss(0.026);
     col.setHSL(hsl.h + rng.gauss(0.006), Math.max(0, hsl.s * (1 + rng.gauss(0.08))), Math.min(0.97, Math.max(0.02, hsl.l + dl)));
     color[i * 4] = col.r; color[i * 4 + 1] = col.g; color[i * 4 + 2] = col.b;
-    color[i * 4 + 3] = (TONE_ROUGHNESS[t.tone] ?? 0.86) + rng.gauss(0.04);
+    // roughness, with the stone kind packed into the integer part
+    color[i * 4 + 3] = Math.min(0.98, Math.max(0.3, (TONE_ROUGHNESS[t.tone] ?? 0.86) + rng.gauss(0.04))) + 2 * (STONE_KIND[t.tone] ?? 0);
 
     anim[i * 4] = t.start;
     anim[i * 4 + 1] = t.duration;
@@ -301,8 +335,10 @@ export function buildMosaicMesh(tiles, { seed = 7878 } = {}) {
 
 // ------------------------------------------------------------------ mortar bed and slab
 
-export function buildBed(panel, mortarHex, sinopiaTex) {
+export function buildBed(panel, mortarHex, sinopiaTex, joints, timeUniform) {
   const uniforms = {
+    uTime: timeUniform,
+    uJointTex: { value: joints.tex },
     uBed: { value: 0 },
     uSinopia: { value: 0 }, // how much of the underdrawing has been drawn
     uSinopiaFade: { value: 1 },
@@ -332,8 +368,8 @@ export function buildBed(panel, mortarHex, sinopiaTex) {
       .replace(
         '#include <common>',
         `#include <common>
-        uniform float uBed, uSinopia, uSinopiaFade;
-        uniform sampler2D uSinopiaTex;
+        uniform float uBed, uSinopia, uSinopiaFade, uTime;
+        uniform sampler2D uSinopiaTex, uJointTex;
         varying vec3 vBedPos;
         ${NOISE}`
       )
@@ -358,8 +394,15 @@ export function buildBed(panel, mortarHex, sinopiaTex) {
         sand = sand * 0.8 + trowel * 0.4;
         float wet = 1.0 - smoothstep(0.0, 0.12, front - (sweep + rowWave));
         diffuseColor.rgb *= (0.86 + 0.2 * sand) * mix(1.0, 0.72, wet * step(uBed, 0.999));
+        // coarse aggregate: darker and lighter grains in the lime mortar
+        float agg = vnoise(vec3(vBedPos.xz * 31.0, 7.0));
+        diffuseColor.rgb *= 1.0 - 0.22 * smoothstep(0.78, 0.9, agg) + 0.1 * smoothstep(0.1, 0.02, agg);
         if (vBedPos.y > 0.27) {
           vec2 suv = vec2(sweep, (${(d / 2).toFixed(2)} - vBedPos.z) / ${d.toFixed(2)});
+          // mortar between laid stones gets less light than open bed
+          vec2 jt = texture2D(uJointTex, suv).rg;
+          float laid = smoothstep(jt.g * ${joints.timeScale.toFixed(1)} - 0.05, jt.g * ${joints.timeScale.toFixed(1)} + 0.3, uTime);
+          diffuseColor.rgb *= 1.0 - jt.r * 0.6 * laid;
           vec2 sk = texture2D(uSinopiaTex, suv).rg;
           float drawn = smoothstep(sk.g - 0.012, sk.g + 0.004, uSinopia);
           float brush = 0.6 + 0.5 * vnoise(vec3(vBedPos.xz * 5.0, 9.0));
@@ -373,7 +416,7 @@ export function buildBed(panel, mortarHex, sinopiaTex) {
         normal = bumpNormal(normal, -vViewPosition, sand, 0.05);`
       );
   };
-  bedMat.customProgramCacheKey = () => 'mosaic-bed-v3';
+  bedMat.customProgramCacheKey = () => 'mosaic-bed-v4';
   const bed = new THREE.Mesh(new THREE.BoxGeometry(w, 0.55, d), bedMat);
   bed.position.y = -0.275;
   bed.receiveShadow = true;
@@ -452,8 +495,10 @@ export function buildStage(panel) {
     wood *= 0.9 + 0.2 * seed;
     float seam = min(zl, plankW - zl);
     wood *= mix(0.35, 1.0, smoothstep(0.03, 0.12, seam));
+    // the lamp's pool of light falls away across the table
+    wood *= mix(0.28, 1.0, 1.0 - smoothstep(55.0, 175.0, length(p.xz * vec2(0.85, 1.25))));
     diffuseColor.rgb = wood;`;
-  const table = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), woodMaterial('#3d2c21', '#22170f', 0.66, tableGrain, 'mosaic-table-v2'));
+  const table = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), woodMaterial('#3d2c21', '#22170f', 0.66, tableGrain, 'mosaic-table-v3'));
   table.rotation.x = -Math.PI / 2;
   table.position.y = floor;
   table.receiveShadow = true;

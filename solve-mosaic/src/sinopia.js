@@ -8,7 +8,7 @@ import { PANEL, FIELD, toWorld } from './compose.js';
 
 const PX = 12; // texels per world unit
 
-export function buildSinopia({ wm, planes, trails }) {
+export function buildSinopia({ planes, trails }) {
   const W = Math.ceil((PANEL.x1 - PANEL.x0) * PX), H = Math.ceil((PANEL.y1 - PANEL.y0) * PX);
   const ink = new Float32Array(W * H);
   const order = new Float32Array(W * H).fill(1);
@@ -66,12 +66,8 @@ export function buildSinopia({ wm, planes, trails }) {
     stroke(circ, 0.46, 0.5, { closed: true, strength: 0.8, width: 0.07 });
   }
 
-  // 4. The wordmark, letter by letter, then the dots.
-  wm.letters.forEach((l, i) => {
-    const o0 = 0.5 + i * 0.058;
-    l.rings.forEach((r) => stroke(r, o0, o0 + 0.055, { closed: true }));
-  });
-  wm.dots.forEach((d, i) => stroke(d.ring, 0.8 + i * 0.02, 0.82 + i * 0.02, { closed: true }));
+  // The wordmark itself is deliberately left out: its shape stays hidden until
+  // the background closes round it.
 
   // 2. Planes (outline and folds) and their flight paths, drawn early so the
   //    opening chase follows a freshly drawn line.
@@ -82,7 +78,7 @@ export function buildSinopia({ wm, planes, trails }) {
     stroke(trails[i].pts, o0 + 0.01, o0 + 0.04, { strength: 0.6, width: 0.07 });
   });
 
-  // 5. The meander's path along each side of the band.
+  // 4. The meander's path along each side of the band.
   const sides = [
     { n: FIELD.x1 - FIELD.x0, at: (u, v) => [FIELD.x0 + u + 0.5, PANEL.y1 - v - 0.5] },
     { n: FIELD.y1 - FIELD.y0, at: (u, v) => [PANEL.x1 - v - 0.5, FIELD.y1 - u - 0.5] },

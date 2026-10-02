@@ -11,15 +11,15 @@
 import { Grid, fillRings, forEachCellInPolygon, edt, edtLabels, sample, contours } from './field.js';
 import {
   signedArea, centroid, ccw, isConvex, clipHalfPlane, insetConvex, convexHull,
-  simplifyConvex, resample, sampleBezierChain,
+  simplifyConvex, resample, sampleBezierChain, pointInPolygon,
 } from './geom.js';
 import { Rng } from './rng.js';
 import { FLIGHT } from './timeline.js';
 import { FIELD, PANEL, BORDER, wordmark, PLANES, planeGeometry } from './compose.js';
 
 const RES = 1 / 16;
-const GAP = 0.1; // mortar joint in the background and border
-const GAP_FINE = 0.08; // joints in the lettering, planes and dots
+const GAP = 0.12; // mortar joint in the background and border
+const GAP_FINE = 0.09; // joints in the lettering, planes and dots
 const TAU = Math.PI * 2;
 
 const LETTER_ORDER = ['s', 'o', 'l', 'v', 'e'];
@@ -180,6 +180,7 @@ export function buildMosaic({ seed = 7878, targetCount = 7878 } = {}) {
         let poly = [aDn, bDn, bUp, aUp];
         if (opts.clip) poly = opts.clip(aDn, bDn, bUp, aUp);
         if (!poly) continue;
+        if (opts.reshape) poly = opts.reshape(poly, ids.length);
         const sMid = ((a0 - pc.a) * step + pc.a * step + (cuts[k] + cuts[k + 1]) / 2) % L;
         const meta = opts.meta(ids.length, sMid, L);
         let id = place(poly, meta);
@@ -197,6 +198,21 @@ export function buildMosaic({ seed = 7878, targetCount = 7878 } = {}) {
     return ids;
   }
   const lerp2 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+
+  // A round-cut stone (hexagon) set in the middle of a course quad.
+  function roundStone(q) {
+    const c = centroid(q);
+    const ux = q[1][0] - q[0][0], uy = q[1][1] - q[0][1], len = Math.hypot(ux, uy) || 1;
+    const across = Math.hypot(q[3][0] - q[0][0], q[3][1] - q[0][1]);
+    const r = Math.min(len, across) * 0.5;
+    const a0 = Math.atan2(uy, ux);
+    const out = [];
+    for (let k = 0; k < 6; k++) {
+      const a = a0 + (k / 6) * TAU + TAU / 12;
+      out.push([c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)]);
+    }
+    return out;
+  }
 
   // ------------------------------------------------------------ concentric rings
 
@@ -278,11 +294,22 @@ export function buildMosaic({ seed = 7878, targetCount = 7878 } = {}) {
   // trails (sampled now, laid later)
   const TRAIL_W = 0.6;
   const trails = planes.map((pl) => {
-    const seg = pl.spec.trail.map((s) => s);
-    const line = sampleBezierChain(seg, 0.04);
-    // stop short of the plane
-    const tail = pl.geo.tail;
-    let pts = line.pts.filter((q) => Math.hypot(q[0] - tail[0], q[1] - tail[1]) > 1.15);
+    const line = sampleBezierChain(pl.spec.trail, 0.04);
+    // run from the far end until the path comes within a stone's width of the
+    // plane, so the trail stops just behind it
+    const out = pl.geo.outline;
+    const clear = (q) => {
+      if (pointInPolygon(q[0], q[1], [out])) return false;
+      for (let i = 0; i < out.length; i++) {
+        const a = out[i], b = out[(i + 1) % out.length];
+        const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1;
+        const t = Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / L2));
+        if (Math.hypot(q[0] - a[0] - dx * t, q[1] - a[1] - dy * t) < 1.05) return false;
+      }
+      return true;
+    };
+    const pts = [];
+    for (const q of line.pts) { if (!clear(q)) break; pts.push(q); }
     return { pts, closed: false };
   });
   const trailMask = new Uint8Array(N);
@@ -368,7 +395,7 @@ export function buildMosaic({ seed = 7878, targetCount = 7878 } = {}) {
     const small = pl.spec.length < 9;
     const pitch = small ? 0.5 : 0.6;
     const len = pitch * 1.25;
-    const facetOrder = { upper: 0, fold: 1, lower: 2 };
+    const facetOrder = { light: 0, dark: 1, keel: 2 };
     pl.geo.facets.forEach((f, fi) => {
       const tri = ccw(f.tri);
       const inset = insetConvex(tri, GAP_FINE / 2);
@@ -431,15 +458,16 @@ export function buildMosaic({ seed = 7878, targetCount = 7878 } = {}) {
         }
       }
     });
-    // trail: one dashed course, laid from its far end up to the plane
+    // trail: a dotted course laid from its far end up to the plane, as in the
+    // Solve motif: round white stones with dark stones between them
     const tr = trails[pi];
     const line = { pts: tr.pts, closed: false };
-    const tone = pl.spec.trailTone;
+    const half = TRAIL_W / 2 - GAP_FINE / 2;
     layCourse(line, {
-      halfUp: TRAIL_W / 2 - GAP_FINE / 2, halfDown: TRAIL_W / 2 - GAP_FINE / 2, len: 0.62,
-      gap: GAP_FINE, rng: rPlanes, normalSign: 1,
+      halfUp: half, halfDown: half, len: 0.62, gap: GAP_FINE, rng: rPlanes, normalSign: 1,
+      reshape: (poly, i) => (i % 2 === 0 ? roundStone(poly) : poly),
       meta: (i, s, L) => ({
-        tone: i % 5 < 3 ? tone : 'charcoal', group: i % 5 < 3 ? 'trail' : 'trail-gap', region: 0,
+        tone: i % 2 === 0 ? 'ivory' : 'charcoal', group: i % 2 === 0 ? 'trail' : 'trail-gap', region: 0,
         phase: 'planes', prog: mix(FLIGHT[pi].trail, s / L),
       }),
     });

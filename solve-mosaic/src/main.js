@@ -4,8 +4,9 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildMosaic } from './layout.js';
 import { buildMosaicMesh, buildBed, buildStage } from './mosaic.js';
 import { buildSinopia } from './sinopia.js';
+import { buildJointShade } from './joints.js';
 import { createDirector } from './director.js';
-import { assignTimeline, phaseAt, PHASES, FLIGHT, SINOPIA_FADE } from './timeline.js';
+import { assignTimeline, phaseAt, PHASES, FLIGHT, FLIGHT_ORDER, SINOPIA_FADE } from './timeline.js';
 import { PANEL, MORTAR, toWorld } from './compose.js';
 import { O_GEOM, DOTS } from './logo.js';
 
@@ -56,21 +57,26 @@ scene.environmentIntensity = 0.45;
 
 const camera = new THREE.PerspectiveCamera(30, 1, 0.3, 2000);
 
-const hemi = new THREE.HemisphereLight(0xe9eef2, 0x2b251f, 0.55);
+// A low, warm key raking across the stones, a cool sky fill and a faint back
+// light: long soft shadows in the joints and a glint on every bevel.
+const hemi = new THREE.HemisphereLight(0xdfe7f0, 0x2b251f, 0.42);
 scene.add(hemi);
-const key = new THREE.DirectionalLight(0xfff1e0, 2.3);
-key.position.set(-44, 50, 34);
+const key = new THREE.DirectionalLight(0xffeedb, 2.7);
+key.position.set(-48, 36, 30);
 key.castShadow = true;
 const mobile = Math.min(window.innerWidth, window.innerHeight) < 700;
 key.shadow.mapSize.set(mobile ? 2048 : 4096, mobile ? 2048 : 4096);
-Object.assign(key.shadow.camera, { left: -66, right: 66, top: 46, bottom: -46, near: 10, far: 160 });
-key.shadow.bias = -0.0004;
-key.shadow.normalBias = 0.015;
-key.shadow.radius = 2;
+Object.assign(key.shadow.camera, { left: -62, right: 62, top: 50, bottom: -50, near: 10, far: 170 });
+key.shadow.bias = -0.0003;
+key.shadow.normalBias = 0.012;
+key.shadow.radius = 1.6;
 scene.add(key, key.target);
-const fill = new THREE.DirectionalLight(0xdfe8f2, 0.35);
+const fill = new THREE.DirectionalLight(0xdfe8f2, 0.3);
 fill.position.set(40, 30, -30);
 scene.add(fill);
+const back = new THREE.DirectionalLight(0xfff4e8, 0.45);
+back.position.set(20, 14, -60);
+scene.add(back);
 
 scene.add(buildStage(PANEL)); // walnut frame and plank table
 
@@ -303,11 +309,11 @@ function boot() {
   buildEnd = assignTimeline(layout.tiles, SEED);
   mosaic = buildMosaicMesh(layout.tiles, { seed: SEED });
   scene.add(mosaic.mesh);
-  bed = buildBed(PANEL, MORTAR, buildSinopia(layout));
+  bed = buildBed(PANEL, MORTAR, buildSinopia(layout), buildJointShade(layout.tiles, PANEL), mosaic.uniforms.uTime);
   scene.add(bed.group);
 
   director = createDirector({
-    fitRadius, aspect: () => camera.aspect, phases: PHASES, flight: FLIGHT,
+    fitRadius, aspect: () => camera.aspect, phases: PHASES, flight: FLIGHT, flightOrder: FLIGHT_ORDER,
     trails: layout.trails, planes: layout.planes, letters: layout.wm.letters, dots: dotsCentre,
   });
   poseToCamera(camMode === 'cinematic' ? director.poseAt(0) : openingPose());
