@@ -72,8 +72,10 @@ the bed.
 ## Video
 
 `video/build.sh` renders the Cinematic camera at 1× to a 43-second MP4 with an
-ElevenLabs soundtrack: a lo-fi jazz-hop bed (piano and flute) and a soft tap
-for every stone, timed to its landing. See [`video/README.md`](video/README.md).
+ElevenLabs soundtrack: a lo-fi jazz-hop bed (piano and flute) and a soft, sandy
+tap for every stone, timed to its landing (turquoise stones get a glass tick).
+It makes four versions, one for each of the four music takes. See
+[`video/README.md`](video/README.md).
 
 ## How it is made
 
