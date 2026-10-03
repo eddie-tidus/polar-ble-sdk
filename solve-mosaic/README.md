@@ -69,6 +69,12 @@ holds when paused.
 Each stone drops a short way, lands, rebounds very slightly and is pressed into
 the bed.
 
+## Video
+
+`video/build.sh` renders the Cinematic camera at 1× to a 43-second MP4 with an
+ElevenLabs soundtrack: a lo-fi jazz-hop bed (piano and flute) and a soft tap
+for every stone, timed to its landing. See [`video/README.md`](video/README.md).
+
 ## How it is made
 
 - **Wordmark** (`src/logo.js`): the letterforms were measured from the supplied
