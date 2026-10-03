@@ -15,7 +15,7 @@ video/build.sh                   # writes video/out/
 
 Requirements: Node with Playwright and its Chromium (set `PLAYWRIGHT` to the
 path of Playwright's `index.mjs` if Node cannot resolve `playwright`), Python 3
-with numpy, scipy, librosa and soundfile, and ffmpeg.
+with numpy, librosa and soundfile, and ffmpeg.
 
 Output in `video/out/`: four versions with the same picture and taps, one per
 music take.
@@ -43,20 +43,15 @@ number of renderers (default 2).
 1. `events.mjs`: every stone's landing and rebound time, position, size and
    stone family, from the same seeded layout and timeline as the page.
 2. `campath.mjs`: the cinematic camera's path, sampled every 1/48 s.
-3. `taps.py`: trims each tap recording to its strike and decay, then makes the
-   stone taps dull and smooth.
-   - A gentle low-pass at 1.8 kHz.
-   - The strike rounded over its first 8 ms.
-   - A faint layer of soft grit, about 14 dB down, so dense passages blend
-     into a sandy patter.
-   - The glass taps are left bright.
+3. `taps.py`: trims each tap recording to its strike and decay.
 4. `mix.py`: places one tap per landing (and a quieter one per rebound).
    - Each tap's level follows the stone's distance from the camera, whether it
-     is on screen, and its size; its pitch varies a little with its size.
-   - Taps are panned by where the stone sits on screen.
-   - Turquoise stones get the glass tick; every other stone gets a sandy tap.
+     is on screen, and its size; its pitch follows its size.
+   - Taps are panned by where the stone sits on screen. Glass stones
+     (turquoise, blue, green) use the glass taps; the rest use the marble taps.
    - A level rider caps dense passages, which reach several hundred stones a
-     second, so they stay a soft patter about 10 dB under the music.
+     second. The taps then sit about 15 dB under the music: half the level
+     (−6 dB) of the first cut, so they do not clash with it.
 5. `render.mjs`: renders each frame at exactly frame/24 s.
 6. `build.sh`: runs the steps above, encodes the picture once at each size,
    and muxes each soundtrack onto it. The audio is delayed by 21 ms (half a
@@ -85,10 +80,11 @@ analysis of their drum and harmony levels:
 
 **Taps:** text-to-sound v2, 1 s each, prompt influence 0.6.
 
-- **`sand_1–4.mp3`:** *"A small stone mosaic tile settling gently into soft,
-  damp, sandy lime mortar: a soft, dull, muffled low thud with a faint smooth
-  gritty sand crunch, rounded and padded, no click, no sharp attack…"*
-- **`glass_1`, `glass_2`, `glass_4.mp3`:** *"A single small glass mosaic tile
-  pressed onto soft wet mortar: one soft, bright glassy tick over a gentle low
-  thud…"*
-  - `glass_3` from the same run was mostly high hiss and is not used.
+- **`tap_1–4.mp3`:** *"A single small marble mosaic tile set down onto soft wet
+  lime mortar: one gentle, satisfying low tap with a tiny muted click…"*
+- **`glass_1–4.mp3`:** *"A single small glass mosaic tile pressed onto soft wet
+  mortar: one soft, bright glassy tick over a gentle low thud…"*
+  - `glass_3` is mostly high hiss (97% of its energy above 4 kHz), so it is
+    the brightest sound in the set.
+- A duller, sandier set (low-passed, softened, with added grit) was tried and
+  set aside in favour of these.

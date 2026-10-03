@@ -1,8 +1,7 @@
 # The soundtrack: the ElevenLabs music bed plus one tap per stone landing (and
 # a quieter one for its rebound), panned and attenuated by where the stone sits
 # relative to the cinematic camera, with a level rider keeping dense passages
-# a soft patter under the music. Stones get dull, sandy taps; only the
-# turquoise stones get a glass tick.
+# a soft patter under the music.
 #   python3 mix.py <outDir> [music.mp3] [name]  →  <outDir>/<name>.wav (default
 #   sources/music.mp3 and mix), plus <outDir>/sfx_only.wav for the default mix
 import json, sys
@@ -20,10 +19,10 @@ rng = np.random.default_rng(7878)
 
 ev = json.load(open(out / 'events.json'))
 cam = np.array(json.load(open(out / 'campath.json')))  # t, x, y, z, r, az, polar, tx, tz
-sand = [sf.read(out / f'sand_{k}.wav')[0] for k in range(1, 5)]
-glass = [sf.read(out / f'glass_{k}.wav')[0] for k in (1, 2, 4)]
-GLASS_TONES = {'turquoise'}
-SFX_GAIN = 0.75
+marble = [sf.read(out / f'tap_{k}.wav')[0] for k in range(1, 5)]
+glass = [sf.read(out / f'glass_{k}.wav')[0] for k in range(1, 5)]
+GLASS_TONES = {'turquoise', 'blue', 'blueDark', 'green', 'greenDark'}
+SFX_GAIN = 0.9 * 0.5  # taps at half the level of the first cut, so they sit back from the music
 
 def cam_at(t):
     i = np.clip(np.searchsorted(cam[:, 0], t), 1, len(cam) - 1)
@@ -47,7 +46,7 @@ def place(t, clip, gain, pan, rate):
 
 for e in ev:
     p = np.array([e['x'], 0.15, -e['y']])
-    for t, level in ((e['land'], 1.0), (e['rebound'], 0.15)):
+    for t, level in ((e['land'], 1.0), (e['rebound'], 0.2)):
         c, target = cam_at(t)
         d = np.linalg.norm(p - c)
         fwd = target - c; fwd /= np.linalg.norm(fwd)
@@ -59,9 +58,9 @@ for e in ev:
         gain *= np.sqrt(max(e['size'], 0.2) / 0.8) * rng.uniform(0.8, 1.2) * level
         if e['group'] == 'dot': gain *= 1.4
         elif e['group'] == 'letter': gain *= 1.1
-        pool = glass if e['tone'] in GLASS_TONES else sand
+        pool = glass if e['tone'] in GLASS_TONES else marble
         clip = pool[rng.integers(len(pool))]
-        rate = np.clip((0.6 / max(e['size'], 0.25)) ** 0.3, 0.85, 1.12) * rng.uniform(0.96, 1.04)
+        rate = np.clip((0.6 / max(e['size'], 0.25)) ** 0.3, 0.82, 1.25) * rng.uniform(0.96, 1.04)
         place(t, clip, gain, float(np.clip(np.sin(ang_side) * 1.4, -0.9, 0.9)), rate)
 
 sfx = np.stack([L, R], 1)
